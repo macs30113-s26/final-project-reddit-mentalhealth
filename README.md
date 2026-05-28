@@ -204,7 +204,7 @@ This keeps the collection process simple enough for a course project while still
 ----------------------------------------------------------
 **Individual Contribution to Group Project: Nana Takeshiba**
 
-**Background**
+## Background
 
 Large-scale social media platforms such as Reddit contain valuable information about public discussions surrounding mental health. However, traditional local analysis workflows using pandas or in-memory processing become inefficient when scaling to large datasets.
 
@@ -212,7 +212,7 @@ To address this issue, our group project developed a distributed NLP processing 
 
 My contribution focused on designing and implementing the scalable preprocessing and exploratory analysis pipeline for Reddit posts and comments data.
 
-**Architecture and Workflow**
+## Architecture and Workflow
 
 The analysis was conducted using a Spark-enabled AWS EMR cluster connected through JupyterHub. Reddit posts and comments data stored on Amazon S3 were loaded directly into Spark DataFrames using distributed JSON readers.
 
@@ -220,11 +220,11 @@ After loading the data, I implemented a scalable cleaning pipeline that removed 
 
 Next, I constructed a scalable NLP preprocessing workflow using Spark MLlib. This pipeline included:
 
-lowercasing text,
-punctuation removal,
-tokenization,
-stopword removal,
-and token count generation.
+- lowercasing text,
+- punctuation removal,
+- tokenization,
+- stopword removal,
+- and token count generation.
 
 These preprocessing steps transformed raw Reddit text into structured token-based representations suitable for downstream analysis.
 

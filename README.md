@@ -199,3 +199,49 @@ External APIs can be rate-limited. This pipeline uses controlled parallelism ins
 - A run-level JSON log is written to S3.
 
 This keeps the collection process simple enough for a course project while still showing Spark/EMR parallelism.
+
+
+----------------------------------------------------------
+**Individual Contribution to Group Project: Nana Takeshiba**
+
+**Background**
+
+Large-scale social media platforms such as Reddit contain valuable information about public discussions surrounding mental health. However, traditional local analysis workflows using pandas or in-memory processing become inefficient when scaling to large datasets.
+
+To address this issue, our group project developed a distributed NLP processing pipeline using PySpark and AWS EMR. The broader goal of the project was to preprocess and organize Reddit discussions from mental health related subreddits so that downstream analyses could be conducted efficiently at scale.
+
+My contribution focused on designing and implementing the scalable preprocessing and exploratory analysis pipeline for Reddit posts and comments data.
+
+**Architecture and Workflow**
+
+The analysis was conducted using a Spark-enabled AWS EMR cluster connected through JupyterHub. Reddit posts and comments data stored on Amazon S3 were loaded directly into Spark DataFrames using distributed JSON readers.
+
+After loading the data, I implemented a scalable cleaning pipeline that removed null values, deleted Reddit entries ([deleted], [removed]), and empty text observations. Because repeated transformations on large datasets are computationally expensive, I additionally cached the cleaned Spark DataFrames to improve runtime efficiency.
+
+Next, I constructed a scalable NLP preprocessing workflow using Spark MLlib. This pipeline included:
+
+lowercasing text,
+punctuation removal,
+tokenization,
+stopword removal,
+and token count generation.
+
+These preprocessing steps transformed raw Reddit text into structured token-based representations suitable for downstream analysis.
+
+I also implemented exploratory analyses on the processed datasets. First, I conducted word frequency analysis using distributed aggregation operations in Spark. Frequently appearing terms such as “feel,” “help,” and “anxiety” provided a descriptive overview of common linguistic patterns in mental health discussions.
+
+Second, I implemented monthly aggregation analyses grouped by subreddit, year, and month to support scalable temporal analysis of Reddit activity.
+
+**Data Storage and Scalability**
+
+To support downstream group analysis, I saved the processed datasets as partitioned parquet files on Amazon S3. I used parquet rather than CSV because parquet files are significantly more efficient for distributed Spark workloads and allow faster querying and reduced storage overhead. Partitioning the datasets by year and month additionally improved scalability for later analyses.
+
+Finally, I conducted scalability benchmarking using multiple sample sizes to evaluate how the Spark workflow scaled with increasing data volume. 
+
+**Here, I will write up the result using full dataset**
+
+This benchmark demonstrated the advantages of distributed processing for large-scale social media text analysis.
+
+Overall, my contribution focused on building a scalable NLP preprocessing infrastructure that enabled the broader group project to conduct efficient large-scale analysis of Reddit mental health discussions.
+
+----------------------------------------------------------

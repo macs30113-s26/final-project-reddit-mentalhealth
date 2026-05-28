@@ -204,6 +204,8 @@ This keeps the collection process simple enough for a course project while still
 ----------------------------------------------------------
 **Individual Contribution to Group Project: Nana Takeshiba**
 
+- Code and Results of My Part: [data-processing.ipynb](data-processing.ipynb)
+
 ## Background
 
 Large-scale social media platforms such as Reddit contain valuable information about public discussions surrounding mental health. However, traditional local analysis workflows using pandas or in-memory processing become inefficient when scaling to large datasets.

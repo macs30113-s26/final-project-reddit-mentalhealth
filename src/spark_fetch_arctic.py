@@ -5,8 +5,9 @@ This script is intentionally simple for a course project:
 1. Spark reads a manifest CSV from local disk or S3.
 2. Each manifest row is one collection task.
 3. Spark distributes tasks across partitions.
-4. Each task calls the Arctic Shift API and writes one JSONL file to S3.
-5. One run-level log is written to S3 at the end.
+4. Each task calls the Arctic Shift API and returns records to Spark.
+5. Spark writes JSONL files to partitioned S3 folders.
+6. One run-level log is written to S3 at the end.
 
 Example:
     spark-submit \
@@ -64,12 +65,14 @@ def is_usable_text(text):
 def normalize_post(record, source, task_id):
     created_date, year, month = utc_to_date_parts(record["created_utc"])
     return {
+        "row_type": "record",
+        "record_type": "posts",
         "post_id": record.get("id"),
         "subreddit": str(record.get("subreddit", "")).lower(),
         "created_utc": int(record.get("created_utc")),
         "created_date": created_date,
         "year": year,
-        "month": month,
+        "month": f"{month:02d}",
         "title": record.get("title", ""),
         "selftext": record.get("selftext", ""),
         "score": record.get("score"),
@@ -84,13 +87,15 @@ def normalize_comment(record, source, task_id):
     created_date, year, month = utc_to_date_parts(record["created_utc"])
     post_id = str(record.get("link_id", "")).replace("t3_", "")
     return {
+        "row_type": "record",
+        "record_type": "comments",
         "comment_id": record.get("id"),
         "post_id": post_id,
         "subreddit": str(record.get("subreddit", "")).lower(),
         "created_utc": int(record.get("created_utc")),
         "created_date": created_date,
         "year": year,
-        "month": month,
+        "month": f"{month:02d}",
         "body": record.get("body", ""),
         "score": record.get("score"),
         "source": source,
@@ -220,54 +225,15 @@ def collect_task_records(task, page_size, sleep_seconds, max_retries, source):
     return normalized_records, failed_requests, page_count
 
 
-def make_output_key(task, source):
-    kind = task["kind"]
-    subreddit = task["subreddit"]
-    year = task["year"]
-    month = str(task["month"]).zfill(2)
-    task_id = int(task["task_id"])
-
-    return (
-        f"raw/reddit/{kind}/"
-        f"source={source}/"
-        f"subreddit={subreddit}/"
-        f"year={year}/"
-        f"month={month}/"
-        f"part-task-{task_id:06d}.jsonl"
-    )
-
-
-def upload_jsonl_to_s3(s3_client, bucket, key, records):
-    body = "\n".join(json.dumps(record, ensure_ascii=False) for record in records)
-    s3_client.put_object(
-        Bucket=bucket,
-        Key=key,
-        Body=body.encode("utf-8"),
-        ContentType="application/jsonlines",
-    )
-
-
-def upload_json_to_s3(s3_client, bucket, key, data):
-    s3_client.put_object(
-        Bucket=bucket,
-        Key=key,
-        Body=json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8"),
-        ContentType="application/json",
-    )
-
-
 def process_partition(rows, bucket, source, page_size, sleep_seconds, max_retries, run_id):
     """
     Run inside Spark workers. Each worker handles a group of manifest rows.
     """
-    import boto3
-    s3 = boto3.client("s3")
     results = []
 
     for row in rows:
         task = row.asDict()
         task_start = time.time()
-        output_key = make_output_key(task, source)
 
         try:
             records, failed_requests, page_count = collect_task_records(
@@ -278,13 +244,11 @@ def process_partition(rows, bucket, source, page_size, sleep_seconds, max_retrie
                 source=source,
             )
 
-            if len(records) > 0:
-                upload_jsonl_to_s3(s3, bucket, output_key, records)
-
             status = "success" if len(failed_requests) == 0 else "partial_failure"
 
             results.append(
                 {
+                    "row_type": "task_result",
                     "task_id": int(task["task_id"]),
                     "subreddit": task["subreddit"],
                     "kind": task["kind"],
@@ -294,14 +258,15 @@ def process_partition(rows, bucket, source, page_size, sleep_seconds, max_retrie
                     "n_records": len(records),
                     "page_count": page_count,
                     "failed_requests": failed_requests,
-                    "s3_output_path": f"s3://{bucket}/{output_key}" if len(records) > 0 else None,
                     "runtime_seconds": round(time.time() - task_start, 2),
                 }
             )
+            results.extend(records)
 
         except Exception as e:
             results.append(
                 {
+                    "row_type": "task_result",
                     "task_id": int(task["task_id"]),
                     "subreddit": task["subreddit"],
                     "kind": task["kind"],
@@ -311,7 +276,6 @@ def process_partition(rows, bucket, source, page_size, sleep_seconds, max_retrie
                     "n_records": 0,
                     "page_count": 0,
                     "failed_requests": [{"error": str(e)}],
-                    "s3_output_path": None,
                     "runtime_seconds": round(time.time() - task_start, 2),
                 }
             )
@@ -345,6 +309,7 @@ def main():
     start_time = time.time()
 
     spark = SparkSession.builder.appName("reddit-arctic-shift-ingestion").getOrCreate()
+    spark.conf.set("spark.sql.sources.partitionOverwriteMode", "dynamic")
 
     tasks = spark.read.csv(args.manifest, header=True, inferSchema=True)
 
@@ -353,7 +318,7 @@ def main():
 
     tasks = tasks.repartition(args.num_partitions)
 
-    task_results = tasks.rdd.mapPartitions(
+    output_rdd = tasks.rdd.mapPartitions(
         lambda rows: process_partition(
             rows=rows,
             bucket=args.bucket,
@@ -363,7 +328,27 @@ def main():
             max_retries=args.max_retries,
             run_id=run_id,
         )
-    ).collect()
+    )
+
+    output_rows = spark.read.json(output_rdd.map(lambda item: json.dumps(item, ensure_ascii=False)))
+    output_rows.cache()
+
+    task_results = [
+        row.asDict(recursive=True)
+        for row in output_rows.filter(F.col("row_type") == "task_result").collect()
+    ]
+
+    records = output_rows.filter(F.col("row_type") == "record")
+    posts = records.filter(F.col("record_type") == "posts").drop("row_type", "record_type")
+    comments = records.filter(F.col("record_type") == "comments").drop("row_type", "record_type")
+
+    posts.write.mode("overwrite").partitionBy("source", "subreddit", "year", "month").json(
+        f"s3://{args.bucket}/raw/reddit/posts"
+    )
+
+    comments.write.mode("overwrite").partitionBy("source", "subreddit", "year", "month").json(
+        f"s3://{args.bucket}/raw/reddit/comments"
+    )
 
     number_of_posts = sum(
         item["n_records"] for item in task_results if item["kind"] == "posts"
@@ -395,14 +380,11 @@ def main():
         "task_results": task_results,
     }
 
-    import boto3
-
-    s3 = boto3.client("s3")
-    log_key = f"logs/collection_logs/run_{run_id}_{args.run_type}.json"
-    upload_json_to_s3(s3, args.bucket, log_key, run_log)
+    log_path = f"s3://{args.bucket}/logs/collection_logs/run_{run_id}_{args.run_type}"
+    spark.sparkContext.parallelize([json.dumps(run_log, ensure_ascii=False)], 1).saveAsTextFile(log_path)
 
     print(json.dumps(run_log, indent=2))
-    print(f"Uploaded run log to s3://{args.bucket}/{log_key}")
+    print(f"Uploaded run log to {log_path}")
 
     spark.stop()
 

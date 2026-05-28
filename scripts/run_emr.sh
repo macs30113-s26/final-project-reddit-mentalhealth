@@ -5,7 +5,9 @@
 # Usage:
 #   ./scripts/run_emr.sh test4
 #   ./scripts/run_emr.sh test8
-#   ./scripts/run_emr.sh full
+#   ./scripts/run_emr.sh test12
+#   ./scripts/run_emr.sh part1
+#   ./scripts/run_emr.sh part2
 #
 # If test8 is unstable, change the full CORES/PARTITIONS values below to 4.
 
@@ -24,13 +26,23 @@ elif [ "${MODE}" = "test8" ]; then
     RUN_TYPE="test_8core"
     CORES=8
     PARTITIONS=8
-elif [ "${MODE}" = "full" ]; then
-    RUN_GROUP="full"
-    RUN_TYPE="full"
+elif [ "${MODE}" = "test12" ]; then
+    RUN_GROUP="test_12core"
+    RUN_TYPE="test_12core"
+    CORES=12
+    PARTITIONS=12
+elif [ "${MODE}" = "part1" ]; then
+    RUN_GROUP="full_part1"
+    RUN_TYPE="full_part1"
+    CORES=8
+    PARTITIONS=8
+elif [ "${MODE}" = "part2" ]; then
+    RUN_GROUP="full_part2"
+    RUN_TYPE="full_part2"
     CORES=8
     PARTITIONS=8
 else
-    echo "Usage: ./scripts/run_emr.sh test4|test8|full"
+    echo "Usage: ./scripts/run_emr.sh test4|test8|test12|part1|part2"
     exit 1
 fi
 

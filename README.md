@@ -1,5 +1,26 @@
 # Reddit Mental Health Data Collection
 
+## Table of Contents
+1. Overview
+2. Individual Contributions
+- (Lu)
+- Data Cleaning, Preprocessing(Nana)
+- (Anyi)
+
+
+## 1. Overview 
+Social media platforms such as Reddit contain large-scale textual discussions related to mental health, including topics such as depression, anxiety, and emotional support. However, analyzing Reddit data at scale is computationally challenging because the datasets are extremely large and consist primarily of unstructured text.
+
+To address this issue, our group project developed a scalable distributed NLP processing pipeline using PySpark and AWS EMR. The project aimed to preprocess, organize, and analyze Reddit posts and comments efficiently in a cloud-based distributed computing environment. Instead of relying on local pandas workflows, we used Spark-based distributed processing to improve scalability, runtime performance, and storage efficiency.
+
+The project primarily analyzed Reddit discussions from mental health related subreddits such as:
+
+- depression
+- anxiety
+- mentalhealth
+
+## 2. Individual Contributions
+
 This project collects historical Reddit data for `r/mentalhealth` using the Arctic Shift API, Spark/EMR, and Amazon S3.
 
 My part of the final project is data collection and raw cloud storage. The output is JSONL data in S3. Later teammates can read these files with Spark for preprocessing, NLP, and modeling.
@@ -202,7 +223,7 @@ This keeps the collection process simple enough for a course project while still
 
 
 ----------------------------------------------------------
-**Individual Contribution to Group Project: Nana Takeshiba**
+### Individual Contribution - Data Cleaning, Preprocessing (Nana Takeshiba)
 
 - Code and Results of My Part: [data-processing.ipynb](data-processing.ipynb)
 
@@ -247,3 +268,15 @@ This benchmark demonstrated the advantages of distributed processing for large-s
 Overall, my contribution focused on building a scalable NLP preprocessing infrastructure that enabled the broader group project to conduct efficient large-scale analysis of Reddit mental health discussions.
 
 ----------------------------------------------------------
+
+(Anyi's part)
+
+
+
+
+
+----------------------------------------------------------
+
+Author:
+Overview section: Nana Takeshiba
+Individual contribution sections: each project member responsible for the section

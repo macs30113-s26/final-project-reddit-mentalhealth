@@ -12,8 +12,8 @@ Group members: Lu Chen (luchen66), Nana Takeshiba (ntakeshiba), Anyi Li (anyil)
 4. [Repository Structure](#repository-structure)
 5. [Main Results and Discussion](#main-results-and-discussion)
 6. [How to Reproduce the Analysis](#how-to-reproduce-the-analysis)
-7. [Individual Contributions](#individual-contributions)
-8. [Limitations](#limitations)
+7. [Limitations](#limitations)
+8. [Individual Contributions](#individual-contributions)
 
 ## Project Overview
 
@@ -60,7 +60,7 @@ This scale motivated the use of large-scale computing methods. The project uses:
 - Partitioned Parquet outputs for faster downstream reads.
 - Aggregated CSV outputs for local visualization without downloading the full record-level dataset.
 
-For sentiment analysis, row-level VADER scoring on the full corpus was computationally expensive under the available EMR session limits. The final sentiment/event-study analysis therefore uses a **10% reproducible random sample** of the cleaned corpus, with `seed = 42`. This sample contains 221,895 analyzed records. Topic modeling was run on the full processed corpus.
+For sentiment analysis, row-level VADER scoring on the full corpus was computationally expensive, so the final workflow processed the data in yearly Spark batches and checkpointed each year to S3. In practice, the full 2019-2024 dataset was divided into six year-level chunks (`2019`, `2020`, `2021`, `2022`, `2023`, and `2024`), with each chunk written to the same checkpoint location before being reloaded as one combined sentiment-scored dataset. This made it possible to complete VADER scoring on the full cleaned sentiment dataset: **2,211,334 records** from 2019-2024. Topic modeling was also run on the full processed corpus.
 
 ## Repository Structure
 
@@ -90,18 +90,18 @@ The results and discussion in this section were developed from the modeling and 
 
 ### Sentiment Over Time
 
-The VADER sentiment analysis shows that average sentiment was higher in the post-COVID period than in the pre-COVID period in the analyzed sample.
+The VADER sentiment analysis shows that average sentiment was higher in the post-COVID period than in the pre-COVID period in the full sentiment-scored dataset.
 
-| Period | Average sentiment | Sentiment volatility | Sample records |
+| Period | Average sentiment | Sentiment volatility | Records |
 |---|---:|---:|---:|
-| Pre-COVID | 0.1308 | 0.6562 | 25,735 |
-| Post-COVID | 0.2341 | 0.6798 | 196,160 |
+| Pre-COVID | 0.1336 | 0.6566 | 252,321 |
+| Post-COVID | 0.2345 | 0.6791 | 1,959,013 |
 
 The two-sample comparison found a statistically meaningful difference between pre- and post-COVID average sentiment:
 
 | Pre mean | Post mean | t-statistic | Significant |
 |---:|---:|---:|---|
-| 0.1308 | 0.2341 | -23.6563 | Yes |
+| 0.1336 | 0.2345 | -72.3769 | Yes |
 
 This result does not mean that mental health concerns disappeared after COVID-19. Rather, VADER scores capture lexical sentiment in the text. The post-COVID period contains many highly supportive comments and community-response language, which may raise the average compound sentiment even while the subreddit remains centered on distress, advice, and mental health support. Substantively, this suggests that `r/mentalhealth` became not only a place for expressing distress, but also a space where users increasingly responded with encouragement, resource sharing, and supportive language.
 
@@ -111,9 +111,9 @@ Average monthly sentiment increased sharply during parts of 2020 and 2021, peaki
 
 ### Posting Volume
 
-![Monthly sample post/comment volume](figures/plot2_monthly_volume.png)
+![Monthly post/comment volume](figures/plot2_monthly_volume.png)
 
-The volume plot uses the 10% sentiment sample, so the counts should be interpreted as sample post/comment volume rather than full-corpus volume. The pattern still shows strong growth after the beginning of the pandemic. In the sample, monthly volume reached its highest point in December 2021. This pattern supports the idea that COVID-19 was associated with increased engagement in online mental health communities. Even though the figure uses a sample, the temporal shape is informative because the sample was drawn reproducibly from the full cleaned dataset.
+The volume plot now uses the full sentiment-scored dataset, so the counts represent the analyzed post/comment volume. The pattern shows strong growth after the beginning of the pandemic, with monthly volume reaching its highest point in December 2021. This supports the idea that COVID-19 was associated with increased engagement in online mental health communities.
 
 ### Sentiment Volatility
 
@@ -125,7 +125,7 @@ Sentiment volatility remained high throughout the study period, which is expecte
 
 ![Pre/post comparison](figures/plot4_pre_post_comparison.png)
 
-The pre/post comparison summarizes the main event-study result: average VADER sentiment was higher in the post-COVID sample than in the pre-COVID sample. Combined with the volume and volatility plots, the result suggests a more nuanced pattern than a simple increase or decrease in distress. The community became more active after COVID-19, remained emotionally varied, and showed more positive lexical sentiment on average, likely reflecting a mixture of distress disclosure and supportive community response.
+The pre/post comparison summarizes the main event-study result: average VADER sentiment was higher in the post-COVID period than in the pre-COVID period. Combined with the volume and volatility plots, the result suggests a more nuanced pattern than a simple increase or decrease in distress. The community became more active after COVID-19, remained emotionally varied, and showed more positive lexical sentiment on average, likely reflecting a mixture of distress disclosure and supportive community response.
 
 ### Topic Modeling
 
@@ -205,7 +205,7 @@ This project has several important limitations.
 
 First, the full-data version focuses on `r/mentalhealth` only. The proposal originally discussed multiple mental-health-related subreddits, but the full historical `r/mentalhealth` corpus alone was already large enough to require distributed computation.
 
-Second, the sentiment/event-study analysis uses a 10% reproducible sample rather than the full cleaned corpus. This choice was made because row-level VADER scoring on the full corpus was too slow for the available AWS Academy runtime and deadline. The sample is still large, with 221,895 records, but volume plots should be interpreted as sample volume rather than full-corpus volume.
+Second, although the final sentiment/event-study analysis uses the full cleaned sentiment dataset, the VADER scoring step was computationally expensive and required yearly checkpointing on EMR. This means the workflow is reproducible but still sensitive to AWS session limits, cluster size, and S3 write performance.
 
 Third, VADER is a lexicon-based model. It is useful for scalable social media sentiment scoring, but it cannot fully capture context, sarcasm, clinical severity, or the difference between a distressed post and a supportive reply. The sentiment results should therefore be interpreted as lexical sentiment patterns, not as clinical mental health diagnoses.
 
@@ -418,17 +418,19 @@ To support downstream group analyses, the processed datasets were saved to Amazo
 
 Nana selected the Parquet format because it is substantially more efficient than CSV for Spark workloads, providing faster read performance, columnar storage, and reduced storage requirements. The datasets were additionally partitioned by year and month to improve query efficiency and reduce unnecessary data scanning in later stages of the project.
 
-#### Scalability Benchmarking of the preprocessing pipeline
+#### Scalability Benchmarking
 
-Finally, Nana evaluated the scalability of the workflow by running the preprocessing pipeline on multiple data fractions: 10%, 50%, and 100% samples. To provide a simple and consistent scalability comparison, the benchmark was limited to the core data-processing workflow, including data cleaning, text preprocessing, and monthly aggregation. Downstream analyses such as word-frequency calculations and Parquet file writing were intentionally excluded so that the benchmark would focus on the performance of the preprocessing pipeline itself.
+Finally, Nana evaluated the scalability of the workflow by running the preprocessing pipeline on multiple data fractions: 10%, 50%, and 100% samples.
 
-The preprocessing workflow completed in **3.60 seconds** for the 10% sample, **2.48 seconds** for the 50% sample, and **2.35 seconds** for the full dataset. Although larger samples did not lead to longer runtimes, this result likely reflects Spark's execution characteristics, including fixed job initialization costs, caching effects, and lazy evaluation. Because the total runtime was only a few seconds, Spark overhead appears to have dominated the benchmark. Nevertheless, the results demonstrate that the workflow can process the full dataset without a substantial increase in execution time, supporting the scalability of the distributed processing pipeline.
+The workflow completed in **3.60 seconds** for the 10% sample, **2.48 seconds** for the 50% sample, and **2.35 seconds** for the full dataset. The relatively stable runtime suggests that the distributed Spark workflow can process larger datasets without substantial increases in execution time.
 
 Overall, Nana's contribution centered on designing a scalable text-processing infrastructure for Reddit mental health data. This pipeline transformed raw social media text into structured analytical datasets, generated descriptive insights regarding language use and community engagement, and produced reusable Parquet datasets that enabled subsequent group-level analyses.
 
 ### Anyi Li: Sentiment Analysis, Topic Modeling, Event Study, and Visualization
 
 Anyi's contribution focused on the modeling, analysis, interpretation, and visualization layer of the project. This stage used the cleaned Spark datasets produced by the preprocessing pipeline to measure sentiment, identify topics, compare pre/post-COVID periods, produce the final figures, and write the main results discussion that connects the outputs to the research questions.
+
+This part of the project was organized as a four-part analysis workflow: `1_sentiment_analysis.ipynb` for full-data VADER scoring and sentiment labels, `2_topic_modeling.ipynb` for LDA topic modeling, `3_event_study_visualization_update.ipynb` for monthly and pre/post-COVID aggregation, and `4_visualizations_local.py` for producing the final figures from compact CSV outputs.
 
 Code and results for this part:
 
@@ -447,7 +449,7 @@ Anyi implemented VADER sentiment scoring on the cleaned Reddit text. VADER retur
 
 Because SparkNLP and transformer-based sentiment models required additional system dependencies that were not reliable in the available EMR environment, the final pipeline used VADER as the primary method. To preserve notebook compatibility with the planned pipeline, `sparknlp_sentiment` was stored as a copy of the VADER sentiment label.
 
-The full cleaned dataset contained over 2.2 million records, but row-level VADER scoring was expensive under the available AWS session time. Anyi therefore used a 10% reproducible random sample with `seed = 42` for the sentiment and event-study portion. This produced 221,895 scored records: 25,735 pre-COVID records and 196,160 post-COVID records.
+The full cleaned sentiment dataset contained 2,211,334 records. Row-level VADER scoring was expensive under the available AWS session time, so Anyi redesigned the notebook to process one year at a time, checkpoint each yearly chunk to S3, and then reload the combined checkpoint for labeling and downstream analysis. Technically, the notebook keeps only the columns needed for analysis (`subreddit`, `year`, `month`, `created_utc`, and `clean_text`), applies VADER through a Spark UDF, reuses one `SentimentIntensityAnalyzer` per Python worker instead of creating a new analyzer for every row, repartitions each yearly chunk before writing, and saves the checkpoint partitioned by `period` and `year`. This produced 252,321 pre-COVID records and 1,959,013 post-COVID records.
 
 #### Topic Modeling
 
@@ -457,10 +459,10 @@ The topic modeling pipeline:
 
 1. Reads the processed Parquet files from S3.
 2. Defines pre/post-COVID windows.
-3. Converts filtered token arrays into sparse term-frequency vectors with `CountVectorizer`.
-4. Fits LDA models separately for each period.
-5. Extracts top words and dominant-topic distributions.
-6. Saves topic-labeled outputs to S3.
+3. Converts filtered token arrays into sparse term-frequency vectors with Spark MLlib `CountVectorizer`.
+4. Fits separate LDA models for the pre-COVID and post-COVID periods.
+5. Extracts top words for interpretation and assigns each document a dominant topic from the LDA topic-distribution vector.
+6. Aggregates dominant-topic counts for `r/mentalhealth` and saves topic-labeled outputs to S3.
 
 The resulting topics show that `r/mentalhealth` discussions include personal self-disclosure, distress, help-seeking, peer support, resource sharing, and general discussion of daily emotional struggles.
 
@@ -470,14 +472,14 @@ Anyi implemented an event-study style comparison around March 2020 and designed 
 
 - average VADER sentiment,
 - sentiment volatility,
-- post/comment volume in the analyzed sample,
+- post/comment volume in the full sentiment-scored dataset,
 - and a pre/post t-test using aggregate statistics.
 
-The Spark notebook writes compact CSV outputs to S3 so that plotting can be done locally without downloading the full record-level dataset. The local Python script then creates four figures:
+The Spark notebook writes compact CSV outputs to S3 so that plotting can be done locally without downloading the full record-level dataset. Key Spark functions in this stage include `groupBy`, `avg`, `stddev`, `count`, and `coalesce(1)` for producing small plotting tables. The local Python script then reads those CSVs with pandas and creates four figures with matplotlib:
 
 - monthly average sentiment,
-- monthly sample post/comment volume,
+- monthly post/comment volume,
 - monthly sentiment volatility,
 - and the pre/post average sentiment comparison.
 
-This design reflects a large-scale visualization principle: aggregate in Spark first, then visualize only compact summary tables locally. Anyi also interpreted the resulting patterns, including the increase in post-COVID average sentiment, the growth in sample post/comment volume, persistent sentiment volatility, and the topic-model evidence of both distress and support-seeking language.
+This design reflects a large-scale visualization principle: aggregate in Spark first, then visualize only compact summary tables locally. Anyi also interpreted the resulting patterns, including the increase in post-COVID average sentiment, the growth in post/comment volume, persistent sentiment volatility, and the topic-model evidence of both distress and support-seeking language. These interpretations form the core of the README's Main Results and Discussion section.

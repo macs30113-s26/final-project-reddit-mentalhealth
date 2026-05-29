@@ -3,8 +3,8 @@
 ## Table of Contents
 1. Overview
 2. Individual Contributions
-- (Lu)
-- Data Cleaning, Preprocessing(Nana)
+- Data Collection (Lu)
+- Data Cleaning, Preprocessing (Nana)
 - (Anyi)
 
 
@@ -13,13 +13,9 @@ Social media platforms such as Reddit contain large-scale textual discussions re
 
 To address this issue, our group project developed a scalable distributed NLP processing pipeline using PySpark and AWS EMR. The project aimed to preprocess, organize, and analyze Reddit posts and comments efficiently in a cloud-based distributed computing environment. Instead of relying on local pandas workflows, we used Spark-based distributed processing to improve scalability, runtime performance, and storage efficiency.
 
-The project primarily analyzed Reddit discussions from mental health related subreddits such as:
-
-- depression
-- anxiety
-- mentalhealth
-
 ## 2. Individual Contributions
+
+## Individual Contribution - Data Collection (Lu)
 
 This project collects historical Reddit data for `r/mentalhealth` using the Arctic Shift API, Spark/EMR, and Amazon S3.
 
@@ -223,15 +219,9 @@ This keeps the collection process simple enough for a course project while still
 
 
 ----------------------------------------------------------
-### Individual Contribution - Data Cleaning, Preprocessing (Nana Takeshiba)
+## Individual Contribution - Data Cleaning, Preprocessing (Nana)
 
-- Code and Results of My Part: [data-processing.ipynb](data-processing.ipynb)
-
-## Background
-
-Large-scale social media platforms such as Reddit contain valuable information about public discussions surrounding mental health. However, traditional local analysis workflows using pandas or in-memory processing become inefficient when scaling to large datasets.
-
-To address this issue, our group project developed a distributed NLP processing pipeline using PySpark and AWS EMR. The broader goal of the project was to preprocess and organize Reddit discussions from mental health related subreddits so that downstream analyses could be conducted efficiently at scale.
+- Code and Results of This Part: [data-processing.ipynb](data-processing.ipynb)
 
 My contribution focused on designing and implementing the scalable preprocessing and exploratory analysis pipeline for Reddit posts and comments data.
 
@@ -253,7 +243,7 @@ These preprocessing steps transformed raw Reddit text into structured token-base
 
 I also implemented exploratory analyses on the processed datasets. First, I conducted word frequency analysis using distributed aggregation operations in Spark. Frequently appearing terms such as “feel,” “help,” and “anxiety” provided a descriptive overview of common linguistic patterns in mental health discussions.
 
-Second, I implemented monthly aggregation analyses grouped by subreddit, year, and month to support scalable temporal analysis of Reddit activity.
+Second, I implemented yearly aggregation analyses to support scalable temporal analysis of Reddit activity.
 
 **Data Storage and Scalability**
 
@@ -265,7 +255,7 @@ Finally, I conducted scalability benchmarking using multiple sample sizes to eva
 
 This benchmark demonstrated the advantages of distributed processing for large-scale social media text analysis.
 
-Overall, my contribution focused on building a scalable NLP preprocessing infrastructure that enabled the broader group project to conduct efficient large-scale analysis of Reddit mental health discussions.
+Overall, my contribution focused on building a scalable preprocessing infrastructure that enabled the broader group project to conduct efficient large-scale analysis of Reddit mental health discussions.
 
 ----------------------------------------------------------
 
@@ -278,5 +268,7 @@ Overall, my contribution focused on building a scalable NLP preprocessing infras
 ----------------------------------------------------------
 
 Author:
-Overview section: Nana Takeshiba
+
+Overview: Nana Takeshiba
+
 Individual contribution sections: each project member responsible for the section

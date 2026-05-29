@@ -1,5 +1,5 @@
 """
-4_visualizations_local.py
+4.5_visualizations_local_full.py
 MACS 30113 Final Project — Anyi Li
 
 Note:
@@ -18,7 +18,7 @@ DOWNLOAD THE DATA FROM S3:
 RUN:
   pip install matplotlib pandas
   cd ~/30113/final
-  python 4_visualizations_local.py
+  python 4.5_visualizations_local_full.py
 
 OUTPUT:
   Four PNG image files saved in the same folder as this script:
@@ -100,9 +100,9 @@ ax.plot(monthly_pd["date"], monthly_pd["post_volume"],
         label="r/mentalhealth", marker='o', markersize=3, linewidth=1.5, color=COLOR)
 
 ax.axvline(COVID_DATE, color='black', linestyle='--', linewidth=1.5, label="COVID-19 onset (Mar 11, 2020)")
-ax.set_title("Monthly Sample Post/Comment Volume for r/mentalhealth", fontsize=14, fontweight='bold')
+ax.set_title("Monthly Post/Comment Volume for r/mentalhealth", fontsize=14, fontweight='bold')
 ax.set_xlabel("Date")
-ax.set_ylabel("Number of Posts / Comments in Sample")
+ax.set_ylabel("Number of Posts / Comments")
 ax.legend()
 ax.grid(True, alpha=0.3)
 plt.tight_layout()

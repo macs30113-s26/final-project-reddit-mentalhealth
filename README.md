@@ -17,131 +17,110 @@ To address this issue, our group project developed a scalable distributed NLP pr
 
 ## Individual Contribution - Data Collection (Lu)
 
-This project collects historical Reddit data for `r/mentalhealth` using the Arctic Shift API, Spark/EMR, and Amazon S3.
+# Reddit Mental Health Data Collection
 
-My part of the final project is data collection and raw cloud storage. The output is JSONL data in S3. Later teammates can read these files with Spark for preprocessing, NLP, and modeling.
+## Table of Contents
+1. Overview
+2. Individual Contributions
+- Data Collection and Raw S3 Ingestion (Lu)
+- Data Cleaning, Preprocessing(Nana)
+- (Anyi)
+
+
+## 1. Overview 
+Social media platforms such as Reddit contain large-scale textual discussions related to mental health, including topics such as depression, anxiety, and emotional support. However, analyzing Reddit data at scale is computationally challenging because the datasets are extremely large and consist primarily of unstructured text.
+
+To address this issue, our group project developed a scalable distributed NLP processing pipeline using PySpark and AWS EMR. The project aimed to preprocess, organize, and analyze Reddit posts and comments efficiently in a cloud-based distributed computing environment. Instead of relying on local pandas workflows, we used Spark-based distributed processing to improve scalability, runtime performance, and storage efficiency.
+
+The project analyzed Reddit discussions from the subreddit:
+
+- mentalhealth
+
+## 2. Individual Contributions
+
+### Individual Contribution - Data Collection and Raw S3 Ingestion (Lu)
+
+My contribution is the first stage of the group pipeline: collecting historical Reddit data and storing the raw data in Amazon S3 so that the rest of the group can process it with Spark. I focused on building a scalable ingestion workflow.
+
+The main challenge is that Reddit data is too large to collect comfortably with a single local Python script. To make the collection process more suitable for a large-scale computing course, I used the Arctic Shift historical Reddit API together with Spark on AWS EMR. Spark divides the collection work into many monthly tasks, runs several API workers in parallel, and writes the output directly to S3.
 
 ## Data Scope
 
-- Subreddit: `mentalhealth`
+- Subreddit: `r/mentalhealth`
 - Time period: January 2019 through December 2024
-- Data types: posts and comments
+- Data types: Reddit posts and comments
 - Source: Arctic Shift historical Reddit API
-- Output format: JSONL
+- Output format: line-delimited JSON written by Spark
+- Final raw dataset size: 603,891 posts and 1,818,218 comments, for 2,422,109 total records
 
-The project uses `source=archive` in the S3 path to stay compatible with the sample data path that was already shared with teammates.
+The S3 path uses `source=archive` because the earlier sample data shared with teammates already used that convention. In this project, `archive` means historical Reddit data collected from Arctic Shift rather than recent Reddit API/PRAW data.
 
-## S3 Layout
+## Code Files
 
-```text
-s3://luchen-lab/
-    raw/reddit/posts/source=archive/subreddit=mentalhealth/year=<year>/month=<month>/
-    raw/reddit/comments/source=archive/subreddit=mentalhealth/year=<year>/month=<month>/
-    manifests/
-    logs/collection_logs/
-    code/
-```
+- [`src/make_manifest.py`](src/make_manifest.py): creates a manifest CSV. A manifest is a task list where each row is one collection job, such as posts from one subreddit in one month.
+- [`manifests/manifest_all_2019_2024.csv`](manifests/manifest_all_2019_2024.csv): the final task list for 2019-2024. It contains 144 tasks: 72 months times 2 data types, posts and comments.
+- [`src/spark_fetch_arctic.py`](src/spark_fetch_arctic.py): the main Spark/EMR collection script. It reads the manifest, calls the Arctic Shift API, retries failed requests, and writes raw JSON data to S3.
+- [`scripts/upload_project_files_to_s3.sh`](scripts/upload_project_files_to_s3.sh): uploads the Spark script and manifest to S3 before running EMR.
+- [`scripts/run_emr.sh`](scripts/run_emr.sh): optional helper script containing the `spark-submit` commands used for tests and full runs.
 
-Each output file is named with a deterministic task id, for example:
+## S3 Data Lake Layout
 
-```text
-part-task-000000.jsonl
-```
-
-This means rerunning the same manifest overwrites the same S3 keys instead of creating duplicate files.
-
-## Files
+The raw data is stored in partitioned S3 folders so teammates can read it directly with Spark:
 
 ```text
-src/make_manifest.py
+s3://luchen-lab/raw/reddit/posts/source=archive/subreddit=mentalhealth/year=<year>/month=<month>/
+s3://luchen-lab/raw/reddit/comments/source=archive/subreddit=mentalhealth/year=<year>/month=<month>/
 ```
 
-Creates manifest CSV files. A manifest is a task list where each row is one monthly collection task. The current project uses one combined manifest:
+Other supporting files are stored here:
 
 ```text
-manifests/manifest_all_2019_2024.csv
+s3://luchen-lab/manifests/manifest_all_2019_2024.csv
+s3://luchen-lab/code/spark_fetch_arctic.py
+s3://luchen-lab/logs/collection_logs/
 ```
+
+The output files have Spark-style names such as `part-00000-....json`. Even though the file extension is `.json`, Spark writes one JSON object per line, so the files can be read as JSONL-style data.
+
+## Parallel Collection Strategy
+
+My collection strategy was developed iteratively. Because this pipeline depends on an external API, using more Spark cores does not always mean the job will be faster. If too many workers call the API at the same time, the API may slow down, fail, or hit rate limits. Therefore, I tested several levels of parallelism before running the full dataset.
+
+I first used a conservative 4-core run on three months of data, from 2019-01 to 2019-03. This confirmed that the code, S3 output paths, logs, and retry logic worked correctly. Next, I tested 8 cores on another three-month window, from 2019-04 to 2019-06. The data volume was similar to the 4-core test, but the runtime was much faster, so 8 cores looked like a better setting. I then tested 12 cores on 2019-07 to 2019-09. This run was successful, but it was not faster than 8 cores and was close to the 4-core runtime. This suggested that the bottleneck was probably the Arctic Shift API or network requests, not Spark computation. Based on this result, I chose 8 cores for the full collection.
+
+I also refered to the test runs to decide how to split the full job. AWS Academy sessions can expire after about four hours, so I did not want to run all remaining months in one long job. The 8-core test took about 14.2 minutes for three months of posts and comments. Using that runtime as a rough estimate, I split the remaining data into two larger but still safe run groups. Each full run was designed to finish within the four-hour AWS session limit.
+
+The final run groups were non-overlapping:
 
 ```text
-src/spark_fetch_arctic.py
-```
-
-Spark job that reads a manifest, distributes tasks across Spark workers, calls the Arctic Shift API, and writes JSONL files to S3.
-
-```text
-scripts/upload_project_files_to_s3.sh
-```
-
-Uploads the Spark script and combined manifest CSV file to S3.
-
-```text
-scripts/run_emr.sh
-```
-
-One Spark submit script for EMR. It supports three modes:
-
-```bash
-./scripts/run_emr.sh test4
-./scripts/run_emr.sh test8
-./scripts/run_emr.sh part1
-./scripts/run_emr.sh part2
-```
-
-## Manifest Strategy
-
-The full 2019-2024 collection is stored in one manifest. The `run_group` column separates non-overlapping time windows:
-
-```text
-test_4core: 2019-01 to 2019-03
-test_8core: 2019-04 to 2019-06
+test_4core:  2019-01 to 2019-03
+test_8core:  2019-04 to 2019-06
 test_12core: 2019-07 to 2019-09
 full_part1:  2019-10 to 2022-04
 full_part2:  2022-05 to 2024-12
 ```
 
-The test outputs are part of the final dataset because the time windows do not overlap.
+The test runs are included in the final dataset because their months do not overlap with the full runs. This means the final dataset is the combination of all five successful run groups, without duplicate months.
 
-## Run Workflow
+## EMR Workflow
 
-1. Generate or check the manifest CSV file.
-2. Upload `src/spark_fetch_arctic.py` and the manifest to S3:
+First, I uploaded the code and manifest to S3:
 
 ```bash
 ./scripts/upload_project_files_to_s3.sh
 ```
 
-3. Start an EMR cluster with Spark using the course helper script:
+Then I launched an EMR cluster using the course helper script:
 
 ```bash
-python launch_spark_cluster.py \
+python3 /Users/chenlu/Downloads/launch_spark_cluster.py \
     --s3_bucket luchen-lab \
     --primary_count 1 \
     --core_count 2 \
     --instance_type "m5.xlarge"
 ```
 
-When the helper prints the SSH command, connect to the EMR primary node.
-
-4. Run the 4-core test:
-
-```bash
-spark-submit \
-    --total-executor-cores 4 \
-    --executor-memory 4G \
-    --driver-memory 4G \
-    s3://luchen-lab/code/spark_fetch_arctic.py \
-    --manifest s3://luchen-lab/manifests/manifest_all_2019_2024.csv \
-    --bucket luchen-lab \
-    --source archive \
-    --run-type test_4core \
-    --run-group test_4core \
-    --num-partitions 4 \
-    --sleep-seconds 2 \
-    --max-retries 3
-```
-
-5. Check S3 outputs and the collection log.
-6. Run the 8-core test:
+On the EMR primary node, I used `spark-submit` to run the collection. For example, this command ran the 8-core test:
 
 ```bash
 spark-submit \
@@ -159,11 +138,10 @@ spark-submit \
     --max-retries 3
 ```
 
-7. If 8 cores is stable, use 8 cores for the remaining collection. The 12-core test is optional and was used to check whether higher parallelism helped.
-8. Run the remaining collection in two parts:
+For the longer full runs, I used `nohup` so that the Spark job could continue even if my SSH connection disconnected:
 
 ```bash
-spark-submit \
+nohup spark-submit \
     --total-executor-cores 8 \
     --executor-memory 4G \
     --driver-memory 4G \
@@ -175,47 +153,38 @@ spark-submit \
     --run-group full_part1 \
     --num-partitions 8 \
     --sleep-seconds 2 \
-    --max-retries 3
+    --max-retries 3 \
+    > full_part1.out 2>&1 &
 ```
 
-Then run the second part:
+After each run, the script wrote a JSON run log to S3. These logs record the number of tasks, records collected, failed tasks, runtime, and per-task details.
 
-```bash
-spark-submit \
-    --total-executor-cores 8 \
-    --executor-memory 4G \
-    --driver-memory 4G \
-    s3://luchen-lab/code/spark_fetch_arctic.py \
-    --manifest s3://luchen-lab/manifests/manifest_all_2019_2024.csv \
-    --bucket luchen-lab \
-    --source archive \
-    --run-type full_part2 \
-    --run-group full_part2 \
-    --num-partitions 8 \
-    --sleep-seconds 2 \
-    --max-retries 3
+## Run Results
+
+| Run group | Time window | Executor cores | Tasks | Posts | Comments | Failed or partial tasks | Runtime |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `test_4core` | 2019-01 to 2019-03 | 4 | 6 | 13,322 | 41,181 | 0 | 24.8 min |
+| `test_8core` | 2019-04 to 2019-06 | 8 | 6 | 14,652 | 42,027 | 0 | 14.2 min |
+| `test_12core` | 2019-07 to 2019-09 | 12 | 6 | 14,460 | 41,339 | 0 | 24.6 min |
+| `full_part1` | 2019-10 to 2022-04 | 8 | 62 | 261,824 | 855,878 | 0 | 3.11 hr |
+| `full_part2` | 2022-05 to 2024-12 | 8 | 64 | 299,633 | 837,793 | 0 | 2.72 hr |
+| **Total** | **2019-01 to 2024-12** |  | **144** | **603,891** | **1,818,218** | **0** |  |
+
+Based on the test runs, 8 executor cores were a good choice for this API-based workload. The 12-core test did not improve runtime, most likely because the bottleneck was the external API rather than Spark computation.
+
+## Notes on Reliability and Rate Limits
+
+Because this pipeline calls an external API, the goal was not to use as many cores as possible. Too much parallelism could trigger rate limits or unstable requests. I used a conservative setup with limited cores, `sleep_seconds=2`, and `max_retries=3`.
+
+The manifest design also helped with reliability. If a run failed, I could rerun only the affected `run_group` instead of restarting the entire 2019-2024 collection. Since each run group covers a different set of months, the final dataset can combine all successful runs without duplicating months.
+
+For downstream analysis, teammates can read the full raw dataset from these prefixes:
+
+```text
+s3://luchen-lab/raw/reddit/posts/source=archive/subreddit=mentalhealth/
+s3://luchen-lab/raw/reddit/comments/source=archive/subreddit=mentalhealth/
 ```
 
-9. Terminate the EMR cluster when finished. You can do this in the AWS console, or use the course helper script:
-
-```bash
-python terminate_spark_cluster.py --cluster_id j-XXXXXXXXXXXXX
-```
-
-Replace `j-XXXXXXXXXXXXX` with the cluster id printed by `launch_spark_cluster.py`.
-
-The `scripts/run_emr.sh` file contains the same commands in a shorter reusable form. It is optional; the explicit `spark-submit` commands above match the style shown in the course EMR cheatsheet.
-
-## Notes On API Safety
-
-External APIs can be rate-limited. This pipeline uses controlled parallelism instead of maximum parallelism:
-
-- Spark cores and partitions are limited.
-- Each worker sleeps between API requests.
-- Failed requests are retried.
-- A run-level JSON log is written to S3.
-
-This keeps the collection process simple enough for a course project while still showing Spark/EMR parallelism.
 
 
 ----------------------------------------------------------

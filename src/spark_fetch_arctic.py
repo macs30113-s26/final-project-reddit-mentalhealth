@@ -1,7 +1,6 @@
 """
 Collect Reddit data from the Arctic Shift API with Spark and write JSONL to S3.
 
-This script is intentionally simple for a course project:
 1. Spark reads a manifest CSV from local disk or S3.
 2. Each manifest row is one collection task.
 3. Spark distributes tasks across partitions.

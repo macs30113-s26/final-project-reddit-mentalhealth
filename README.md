@@ -219,43 +219,66 @@ This keeps the collection process simple enough for a course project while still
 
 
 ----------------------------------------------------------
-## Individual Contribution - Data Cleaning, Preprocessing (Nana)
+## Individual Contribution - Data Cleaning, Preprocessing, and Scalable Text Processing (Nana)
 
-- Code and Results of This Part: [data-processing.ipynb](data-processing.ipynb)
+* Code and Results of This Part: [data-processing.ipynb](data-processing.ipynb)
 
-My contribution focused on designing and implementing the scalable preprocessing and exploratory analysis pipeline for Reddit posts and comments data.
+My contribution focused on building a scalable preprocessing and exploratory analysis pipeline for large-scale Reddit mental health discussions using Apache Spark on AWS EMR.
 
 ## Architecture and Workflow
 
-The analysis was conducted using a Spark-enabled AWS EMR cluster connected through JupyterHub. Reddit posts and comments data stored on Amazon S3 were loaded directly into Spark DataFrames using distributed JSON readers.
+The analysis was conducted on a Spark-enabled AWS EMR cluster accessed through JupyterHub. Reddit posts and comments from the r/mentalhealth community were stored on Amazon S3 and loaded directly into Spark DataFrames using distributed JSON readers. This architecture was selected because the dataset is too large for efficient local processing and can be analyzed more effectively through distributed computing.
 
-After loading the data, I implemented a scalable cleaning pipeline that removed null values, deleted Reddit entries ([deleted], [removed]), and empty text observations. Because repeated transformations on large datasets are computationally expensive, I additionally cached the cleaned Spark DataFrames to improve runtime efficiency.
+### Data Cleaning
 
-Next, I constructed a scalable NLP preprocessing workflow using Spark MLlib. This pipeline included:
+The first stage of the pipeline focused on data quality control. For both posts and comments, I removed:
 
-- lowercasing text,
-- punctuation removal,
-- tokenization,
-- stopword removal,
-- and token count generation.
+* null observations,
+* deleted Reddit entries (`[deleted]`),
+* removed Reddit entries (`[removed]`),
+* and empty text records.
 
-These preprocessing steps transformed raw Reddit text into structured token-based representations suitable for downstream analysis.
+These observations do not contain meaningful textual information and would introduce noise into subsequent analyses. After cleaning, the resulting Spark DataFrames were cached in memory. Because multiple downstream analyses reuse the same cleaned datasets, caching reduces repeated computation and improves overall runtime performance.
 
-I also implemented exploratory analyses on the processed datasets. First, I conducted word frequency analysis using distributed aggregation operations in Spark. Frequently appearing terms such as “feel,” “help,” and “anxiety” provided a descriptive overview of common linguistic patterns in mental health discussions.
+### Text Preprocessing
 
-Second, I implemented yearly aggregation analyses to support scalable temporal analysis of Reddit activity.
+After cleaning, I implemented a scalable text preprocessing workflow designed to convert raw Reddit text into structured representations suitable for large-scale analysis.
 
-**Data Storage and Scalability**
+The preprocessing pipeline consisted of:
 
-To support downstream group analysis, I saved the processed datasets as partitioned parquet files on Amazon S3. I used parquet rather than CSV because parquet files are significantly more efficient for distributed Spark workloads and allow faster querying and reduced storage overhead. Partitioning the datasets by year and month additionally improved scalability for later analyses.
+1. Converting all text to lowercase to ensure consistent word matching.
+2. Removing punctuation and non-alphabetic characters using regular expressions.
+3. Tokenizing text into individual words.
+4. Removing common stopwords using Spark MLlib's `StopWordsRemover`.
+5. Creating a token-count feature (`num_tokens`) to measure text length.
 
-Finally, I conducted scalability benchmarking using multiple sample sizes to evaluate how the Spark workflow scaled with increasing data volume. 
+This workflow was intentionally designed to balance computational efficiency and analytical usefulness. Lowercasing and punctuation removal reduce redundant vocabulary, while tokenization and stopword removal produce cleaner word-level representations for exploratory text analysis. The token count variable additionally provides a simple measure of posting behavior and discussion complexity.
 
-**Here, I will write up the result using full dataset**
+### Exploratory Analysis
 
-This benchmark demonstrated the advantages of distributed processing for large-scale social media text analysis.
+Several scalable exploratory analyses were conducted on the processed datasets.
 
-Overall, my contribution focused on building a scalable preprocessing infrastructure that enabled the broader group project to conduct efficient large-scale analysis of Reddit mental health discussions.
+First, I performed word frequency analysis using Spark's distributed aggregation operations. By exploding token arrays and aggregating counts across the cluster, I identified the most frequently used terms in mental health discussions.
+
+Second, I conducted yearly aggregation analyses of posts and comments to examine how community activity evolved over time.
+
+Third, I calculated average token counts by year to investigate temporal changes in discussion length and user engagement.
+
+All analyses were implemented using Spark transformations and aggregations, allowing them to scale efficiently to large datasets.
+
+### Data Storage and Scalability
+
+To support downstream group analyses, the processed datasets were saved to Amazon S3 as partitioned Parquet files.
+
+I selected the Parquet format because it is substantially more efficient than CSV for Spark workloads, providing faster read performance, columnar storage, and reduced storage requirements. The datasets were additionally partitioned by year and month to improve query efficiency and reduce unnecessary data scanning in later stages of the project.
+
+### Scalability Benchmarking
+
+Finally, I evaluated the scalability of the workflow by running the preprocessing pipeline on multiple data fractions (10%, 50%, and 100% samples). Benchmarking was conducted to assess how processing performance changed as data volume increased and to verify that the Spark-based workflow remained efficient when scaling to larger datasets.
+
+## Contribution Summary
+
+Overall, my contribution centered on designing a scalable text-processing infrastructure for Reddit mental health data. This pipeline transformed raw social media text into structured analytical datasets, supported exploratory analysis, and created reusable Parquet datasets that enabled subsequent group-level analyses.
 
 ----------------------------------------------------------
 

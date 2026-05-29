@@ -2,7 +2,7 @@
 
 MACS 30113 Large Scale Computing Final Project
 
-Group members: Lu Chen, Nana Takeshiba, Anyi Li
+Group members: Lu Chen (luchen66), Nana Takeshiba (ntakeshiba), Anyi Li (anyil)
 
 ## Table of Contents
 

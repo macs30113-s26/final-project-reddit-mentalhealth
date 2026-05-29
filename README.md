@@ -219,7 +219,8 @@ This keeps the collection process simple enough for a course project while still
 
 
 ----------------------------------------------------------
-## Individual Contribution - Data Cleaning, Preprocessing, and Scalable Text Processing (Nana)
+
+## Individual Contribution – Data Cleaning, Preprocessing, and Scalable Text Processing　(Nana)
 
 * Code and Results of This Part: [data-processing.ipynb](data-processing.ipynb)
 
@@ -254,15 +255,33 @@ The preprocessing pipeline consisted of:
 
 This workflow was intentionally designed to balance computational efficiency and analytical usefulness. Lowercasing and punctuation removal reduce redundant vocabulary, while tokenization and stopword removal produce cleaner word-level representations for exploratory text analysis. The token count variable additionally provides a simple measure of posting behavior and discussion complexity.
 
-### Exploratory Analysis
+### Exploratory Analysis and Findings
 
 Several scalable exploratory analyses were conducted on the processed datasets.
 
+#### Word Frequency Analysis
+
 First, I performed word frequency analysis using Spark's distributed aggregation operations. By exploding token arrays and aggregating counts across the cluster, I identified the most frequently used terms in mental health discussions.
+
+For posts, the most common terms included *"im"* (857,540 occurrences), *"like"* (622,341), *"feel"* (489,092), *"know"* (372,302), and *"help"* (181,246). These terms suggest that posts primarily consist of personal experiences, emotional reflections, and requests for advice or support.
+
+For comments, the most frequent terms included *"please"* (2,004,055 occurrences), *"thank"* (658,890), *"feel"* (658,400), *"help"* (633,198), and *"therapy"* (390,660). Compared with posts, comments contained more supportive and advice-oriented language, indicating that community members actively respond to and assist one another.
+
+#### Temporal Activity Trends
 
 Second, I conducted yearly aggregation analyses of posts and comments to examine how community activity evolved over time.
 
+The number of posts increased substantially from **37,868 posts in 2019** to **106,339 posts in 2024**, indicating sustained growth in participation within the subreddit.
+
+Similarly, comment activity expanded considerably during the study period. The number of comments increased from **172,849 comments in 2019** to a peak of **387,720 comments in 2021**. Although comment volume declined somewhat afterward, activity remained substantially higher than pre-2020 levels, suggesting continued community engagement.
+
+#### Discussion Length
+
 Third, I calculated average token counts by year to investigate temporal changes in discussion length and user engagement.
+
+Posts remained consistently detailed throughout the observation period, averaging approximately **98–107 tokens per post**. The average post length was relatively stable across years, suggesting that users consistently provided substantial descriptions of their experiences and concerns.
+
+Comments were shorter but exhibited greater variation. Average comment length increased from **28.7 tokens in 2019** to **43.5 tokens in 2021**, before declining to approximately **33.6 tokens in 2024**. This pattern may indicate periods of deeper interaction and more extensive discussion within the community.
 
 All analyses were implemented using Spark transformations and aggregations, allowing them to scale efficiently to large datasets.
 
@@ -274,11 +293,13 @@ I selected the Parquet format because it is substantially more efficient than CS
 
 ### Scalability Benchmarking
 
-Finally, I evaluated the scalability of the workflow by running the preprocessing pipeline on multiple data fractions (10%, 50%, and 100% samples). Benchmarking was conducted to assess how processing performance changed as data volume increased and to verify that the Spark-based workflow remained efficient when scaling to larger datasets.
+Finally, I evaluated the scalability of the workflow by running the preprocessing pipeline on multiple data fractions (10%, 50%, and 100% samples).
+
+The workflow completed in **3.60 seconds** for the 10% sample, **2.48 seconds** for the 50% sample, and **2.35 seconds** for the full dataset. The relatively stable runtime suggests that the distributed Spark workflow can process larger datasets without substantial increases in execution time.
 
 ## Contribution Summary
 
-Overall, my contribution centered on designing a scalable text-processing infrastructure for Reddit mental health data. This pipeline transformed raw social media text into structured analytical datasets, supported exploratory analysis, and created reusable Parquet datasets that enabled subsequent group-level analyses.
+Overall, my contribution centered on designing a scalable text-processing infrastructure for Reddit mental health data. This pipeline transformed raw social media text into structured analytical datasets, generated descriptive insights regarding language use and community engagement, and produced reusable Parquet datasets that enabled subsequent group-level analyses. The results suggest that the r/mentalhealth community is characterized by highly personal narratives, strong peer support, and sustained growth in participation over time.
 
 ----------------------------------------------------------
 

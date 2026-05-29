@@ -69,23 +69,19 @@ print("\nt-test results:")
 print(ttest_pd)
 
 COVID_DATE = pd.Timestamp("2020-03-11")
-SUBREDDITS = monthly_pd["subreddit"].unique()
-COLORS = {"depression": "#e05c5c", "anxiety": "#f0a500", "mentalhealth": "#4a90d9"}
+COLOR = "#4a90d9"
 
 # PLOT 1: Monthly Average Sentiment Over Time
 print("\nGenerating Plot 1: Monthly Average Sentiment...")
 
 fig, ax = plt.subplots(figsize=(14, 5))
 
-for sub in SUBREDDITS:
-    group = monthly_pd[monthly_pd["subreddit"] == sub]
-    color = COLORS.get(sub, None)
-    ax.plot(group["date"], group["avg_sentiment"],
-            label=f"r/{sub}", marker='o', markersize=3, linewidth=1.5, color=color)
+ax.plot(monthly_pd["date"], monthly_pd["avg_sentiment"],
+        label="r/mentalhealth", marker='o', markersize=3, linewidth=1.5, color=COLOR)
 
 ax.axvline(COVID_DATE, color='black', linestyle='--', linewidth=1.5, label="COVID-19 onset (Mar 11, 2020)")
 ax.axhline(0, color='gray', linestyle=':', linewidth=1)
-ax.set_title("Monthly Average Sentiment Score by Subreddit", fontsize=14, fontweight='bold')
+ax.set_title("Monthly Average Sentiment Score for r/mentalhealth", fontsize=14, fontweight='bold')
 ax.set_xlabel("Date")
 ax.set_ylabel("Average VADER Sentiment Score\n(−1 = most negative, +1 = most positive)")
 ax.legend()
@@ -100,16 +96,13 @@ print("Generating Plot 2: Monthly Post Volume...")
 
 fig, ax = plt.subplots(figsize=(14, 5))
 
-for sub in SUBREDDITS:
-    group = monthly_pd[monthly_pd["subreddit"] == sub]
-    color = COLORS.get(sub, None)
-    ax.plot(group["date"], group["post_volume"],
-            label=f"r/{sub}", marker='o', markersize=3, linewidth=1.5, color=color)
+ax.plot(monthly_pd["date"], monthly_pd["post_volume"],
+        label="r/mentalhealth", marker='o', markersize=3, linewidth=1.5, color=COLOR)
 
 ax.axvline(COVID_DATE, color='black', linestyle='--', linewidth=1.5, label="COVID-19 onset (Mar 11, 2020)")
-ax.set_title("Monthly Post Volume by Subreddit", fontsize=14, fontweight='bold')
+ax.set_title("Monthly Sample Post/Comment Volume for r/mentalhealth", fontsize=14, fontweight='bold')
 ax.set_xlabel("Date")
-ax.set_ylabel("Number of Posts / Comments")
+ax.set_ylabel("Number of Posts / Comments in Sample")
 ax.legend()
 ax.grid(True, alpha=0.3)
 plt.tight_layout()
@@ -122,14 +115,11 @@ print("Generating Plot 3: Sentiment Volatility...")
 
 fig, ax = plt.subplots(figsize=(14, 5))
 
-for sub in SUBREDDITS:
-    group = monthly_pd[monthly_pd["subreddit"] == sub]
-    color = COLORS.get(sub, None)
-    ax.plot(group["date"], group["sentiment_volatility"],
-            label=f"r/{sub}", marker='o', markersize=3, linewidth=1.5, color=color)
+ax.plot(monthly_pd["date"], monthly_pd["sentiment_volatility"],
+        label="r/mentalhealth", marker='o', markersize=3, linewidth=1.5, color=COLOR)
 
 ax.axvline(COVID_DATE, color='black', linestyle='--', linewidth=1.5, label="COVID-19 onset (Mar 11, 2020)")
-ax.set_title("Monthly Sentiment Volatility (Std Dev) by Subreddit", fontsize=14, fontweight='bold')
+ax.set_title("Monthly Sentiment Volatility for r/mentalhealth", fontsize=14, fontweight='bold')
 ax.set_xlabel("Date")
 ax.set_ylabel("Sentiment Standard Deviation\n(higher = more emotionally unstable)")
 ax.legend()
@@ -142,22 +132,20 @@ print("  Saved: plot3_sentiment_volatility.png")
 # PLOT 4: Pre vs Post COVID Bar Chart
 print("Generating Plot 4: Pre vs Post COVID comparison...")
 
-subreddits = period_pd["subreddit"].unique()
-x = range(len(subreddits))
 width = 0.35
 
-def get_val(df, sub, period, col):
-    rows = df[(df["subreddit"] == sub) & (df["period"] == period)]
+def get_val(df, period, col):
+    rows = df[df["period"] == period]
     if len(rows) > 0:
         return float(rows[col].values[0])
     return 0.0  # returns 0 if pre-COVID data is missing
 
-pre_vals  = [get_val(period_pd, s, "pre_covid",  "avg_sentiment") for s in subreddits]
-post_vals = [get_val(period_pd, s, "post_covid", "avg_sentiment") for s in subreddits]
+pre_val  = get_val(period_pd, "pre_covid",  "avg_sentiment")
+post_val = get_val(period_pd, "post_covid", "avg_sentiment")
 
 fig, ax = plt.subplots(figsize=(10, 5))
-bars_pre  = ax.bar([i - width/2 for i in x], pre_vals,  width, label='Pre-COVID',  color='steelblue', alpha=0.85)
-bars_post = ax.bar([i + width/2 for i in x], post_vals, width, label='Post-COVID', color='tomato',    alpha=0.85)
+bars_pre  = ax.bar([0 - width/2], [pre_val],  width, label='Pre-COVID',  color='steelblue', alpha=0.85)
+bars_post = ax.bar([0 + width/2], [post_val], width, label='Post-COVID', color='tomato',    alpha=0.85)
 
 # Add value labels on bars
 for bar in bars_pre + bars_post:
@@ -167,17 +155,17 @@ for bar in bars_pre + bars_post:
                 f'{h:.3f}', ha='center', va='bottom', fontsize=9)
 
 ax.set_title("Average Sentiment: Pre vs Post COVID-19", fontsize=14, fontweight='bold')
-ax.set_xlabel("Subreddit")
+ax.set_xlabel("")
 ax.set_ylabel("Average VADER Sentiment Score")
-ax.set_xticks(list(x))
-ax.set_xticklabels([f"r/{s}" for s in subreddits])
+ax.set_xticks([0])
+ax.set_xticklabels(["r/mentalhealth"])
 ax.axhline(0, color='gray', linestyle=':', linewidth=1)
 ax.legend()
 ax.grid(True, alpha=0.3, axis='y')
 
 # Add note if pre-COVID data is missing
-if all(v == 0 for v in pre_vals):
-    ax.text(0.5, 0.95, "Note: Pre-COVID bars are 0 because only post-COVID test batch is loaded.",
+if pre_val == 0:
+    ax.text(0.5, 0.95, "Note: Pre-COVID bar is 0 because only post-COVID test batch is loaded.",
             transform=ax.transAxes, ha='center', va='top', fontsize=9,
             color='gray', style='italic')
 

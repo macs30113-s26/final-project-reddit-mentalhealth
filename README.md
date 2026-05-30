@@ -27,6 +27,8 @@ The final pipeline has three major stages:
 - **Data preprocessing:** raw JSON records were cleaned, normalized, tokenized, filtered, and saved as partitioned Parquet files for downstream Spark analysis.
 - **Modeling and analysis:** VADER sentiment scoring, LDA topic modeling, pre/post-COVID event-study comparisons, and visualizations were run using Spark and local plotting scripts.
 
+Across the project, we first validated code on smaller test data and then scaled the same logic to the full dataset. This helped avoid wasting AWS runtime on long jobs before the workflow was known to run end to end.
+
 The original project proposal considered several mental-health-related subreddits. For the full-data run, the group focused on `r/mentalhealth` because the complete historical dataset was already large enough for a distributed computing project and because adding multiple full subreddits would have exceeded the available AWS Academy runtime.
 
 ## Research Questions
@@ -432,6 +434,8 @@ Anyi's contribution focused on the modeling, analysis, interpretation, and visua
 
 This part of the project was organized as a four-part analysis workflow: `1_sentiment_analysis.ipynb` for full-data VADER scoring and sentiment labels, `2_topic_modeling.ipynb` for LDA topic modeling, `3_event_study_visualization_update.ipynb` for monthly and pre/post-COVID aggregation, and `4_visualizations_local.py` for producing the final figures from compact CSV outputs.
 
+Anyi's workflow also followed a staged scaling process. First, after Lu uploaded a smaller test dataset, Anyi wrote and ran the original sentiment-analysis notebook on that small dataset to verify that loading from S3, defining pre/post-COVID periods, applying VADER, saving checkpoints, and passing results to later notebooks all worked. Second, after Lu uploaded the full-size dataset, Anyi attempted to run the same general logic on the full data and found that the single large VADER checkpoint was too expensive for the available EMR session. Third, Anyi used a 10% run of the full dataset as a practical test to confirm that smaller chunks could complete successfully. After that test, Anyi rewrote the final full-data notebook to process the corpus by year and checkpoint each year separately before combining the outputs.
+
 Code and results for this part:
 
 - [`1_sentiment_analysis.ipynb`](1_sentiment_analysis.ipynb)
@@ -449,7 +453,9 @@ Anyi implemented VADER sentiment scoring on the cleaned Reddit text. VADER retur
 
 Because SparkNLP and transformer-based sentiment models required additional system dependencies that were not reliable in the available EMR environment, the final pipeline used VADER as the primary method. To preserve notebook compatibility with the planned pipeline, `sparknlp_sentiment` was stored as a copy of the VADER sentiment label.
 
-The full cleaned sentiment dataset contained 2,211,334 records. Row-level VADER scoring was expensive under the available AWS session time, so Anyi redesigned the notebook to process one year at a time, checkpoint each yearly chunk to S3, and then reload the combined checkpoint for labeling and downstream analysis. Technically, the notebook keeps only the columns needed for analysis (`subreddit`, `year`, `month`, `created_utc`, and `clean_text`), applies VADER through a Spark UDF, reuses one `SentimentIntensityAnalyzer` per Python worker instead of creating a new analyzer for every row, repartitions each yearly chunk before writing, and saves the checkpoint partitioned by `period` and `year`. This produced 252,321 pre-COVID records and 1,959,013 post-COVID records.
+The full cleaned sentiment dataset contained 2,211,334 records. The small-data version of the notebook used the same basic sentiment logic, while the later 10% full-data test helped confirm that reducing the amount of data processed in a single Spark action could prevent the VADER checkpoint from overwhelming the session. Based on that result, Anyi redesigned the final notebook to process one year at a time, checkpoint each yearly chunk to S3, and then reload the combined checkpoint for labeling and downstream analysis.
+
+Technically, the notebook keeps only the columns needed for analysis (`subreddit`, `year`, `month`, `created_utc`, and `clean_text`), applies VADER through a Spark UDF, reuses one `SentimentIntensityAnalyzer` per Python worker instead of creating a new analyzer for every row, repartitions each yearly chunk before writing, and saves the checkpoint partitioned by `period` and `year`. This produced 252,321 pre-COVID records and 1,959,013 post-COVID records.
 
 #### Topic Modeling
 

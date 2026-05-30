@@ -418,11 +418,11 @@ To support downstream group analyses, the processed datasets were saved to Amazo
 
 Nana selected the Parquet format because it is substantially more efficient than CSV for Spark workloads, providing faster read performance, columnar storage, and reduced storage requirements. The datasets were additionally partitioned by year and month to improve query efficiency and reduce unnecessary data scanning in later stages of the project.
 
-#### Scalability Benchmarking
+#### Scalability Benchmarking of the preprocessing pipeline
 
-Finally, Nana evaluated the scalability of the workflow by running the preprocessing pipeline on multiple data fractions: 10%, 50%, and 100% samples.
+Finally, Nana evaluated the scalability of the workflow by running the preprocessing pipeline on multiple data fractions: 10%, 50%, and 100% samples. To provide a simple and consistent scalability comparison, the benchmark was limited to the core data-processing workflow, including data cleaning, text preprocessing, and monthly aggregation. Downstream analyses such as word-frequency calculations and Parquet file writing were intentionally excluded so that the benchmark would focus on the performance of the preprocessing pipeline itself.
 
-The workflow completed in **3.60 seconds** for the 10% sample, **2.48 seconds** for the 50% sample, and **2.35 seconds** for the full dataset. The relatively stable runtime suggests that the distributed Spark workflow can process larger datasets without substantial increases in execution time.
+The preprocessing workflow completed in **3.60 seconds** for the 10% sample, **2.48 seconds** for the 50% sample, and **2.35 seconds** for the full dataset. Although larger samples did not lead to longer runtimes, this result likely reflects Spark's execution characteristics, including fixed job initialization costs, caching effects, and lazy evaluation. Because the total runtime was only a few seconds, Spark overhead appears to have dominated the benchmark. Nevertheless, the results demonstrate that the workflow can process the full dataset without a substantial increase in execution time, supporting the scalability of the distributed processing pipeline.
 
 Overall, Nana's contribution centered on designing a scalable text-processing infrastructure for Reddit mental health data. This pipeline transformed raw social media text into structured analytical datasets, generated descriptive insights regarding language use and community engagement, and produced reusable Parquet datasets that enabled subsequent group-level analyses.
 
